@@ -13,7 +13,7 @@ class Loader:
 
     #loading functions
     def find_folder(self):
-        locations = [r'E:\\', r'C:\Users\hickm\Documents', r'Z:\\']
+        locations = [r'E:\\', r'C:\Users\jordan\Documents', r'Z:\\']
         
         for location in locations:
             search_pattern = os.path.join(location, f'*{self.mouse}*{self.date}*')
