@@ -45,7 +45,7 @@ class Preprocess:
             df = self.events_df
         ## get timestamps for each run into a dictionary
         
-        run = np.array(df.loc[df.line == 4].loc[df.state == 1].timestamp)
+        run = np.array(df.loc[df.line == 7].loc[df.state == 1].timestamp)
         stim = np.array(df.loc[df.line == 5].loc[df.state == 1].timestamp)
         print(f'# of Run_Triggers: {len(run)}')
         return run, stim
@@ -77,7 +77,7 @@ class Preprocess:
 
     def parse_stim_csvs(self, stim_dict):
         formatted_date = pendulum.parse(self.date, strict = False).format("YYYYMMDD")
-        csv_path = os.path.join(r'C:\Users\hickm\Documents\Stim_CSVs',f'{formatted_date}_{self.mouse}')
+        csv_path = os.path.join(r'C:\Users\jordan\Documents\Stim_CSVs',f'{formatted_date}_{self.mouse}')
 
         extension = 'csv'
         result = glob.glob(os.path.join(csv_path, '*.{}'.format(extension)))

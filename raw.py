@@ -341,7 +341,8 @@ def get_chunk(path,
             median_subtraction = False,
             ):
     """
-    Takes in a continuous datastream object and a list of stimulation times and returns a chunk of the data
+    for open ephys data
+    Takes in a continuous datastream object (from open ephys) and a list of stimulation times and returns a chunk of the data
 
     return: data: np.array, shape = (trials, samples, channels)
     """
@@ -432,13 +433,13 @@ def align_data(data, pre, post, channels, threshold = 400, median_subtraction = 
 
     Args:
         data (np.array): The data to align, shape = (trials, samples, channels)
-        pre_samps (_type_): number of desired pre-samples (determined by pre time in ms) 
-        post_samps (_type_): number of desired post-samples (determined by post time in ms)
+        pre (float): pre-stim time in ms
+        post (float): post-stim time in ms
         channels (_type_): number of channels to plot
-        median_subtraction (_type_): whether to perform median subtraction on the data
+        median_subtraction (bool): whether to perform median subtraction on the data
 
     Returns:
-        _type_: aligned_data, shape = (trials, total_samps, channels)
+        np.array: aligned_data, shape = (trials, total_samps, channels)
     """   
     starts = [find_artifact_start(data[trial, :, 0], pre = pre, threshold = threshold) for trial in range(data.shape[0])] # the sample number of when the artifact first starts 
     # the sample number of when the artifact first starts determined by the find_artifact_start function
