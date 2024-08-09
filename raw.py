@@ -150,93 +150,54 @@ class Raw:
               pre = 100, # time in ms
               post = 500, # time in ms
               chs = np.arange(0,200,1), # channels
-              output = 'response', # 'response, 'pre/post', 'all',
               median_subtraction = False,
+              offset_subtraction = False,
               ):
         """
         Takes in a continuous binary object and a list of stimulation times and returns a chunk of the data
         """
-        data = self.get_raw(probe = probe, band = band)
-        sample_rate = data.metadata['sample_rate']
+        data_stream = self.get_raw(probe = probe, band = band)
+        sample_rate = data_stream.metadata['sample_rate']
+        
+        
         pre_samps = int((pre/1000 * sample_rate))
         post_samps = int((post/1000 * sample_rate))
         total_samps = pre_samps + post_samps
 
         n_chs = len(chs)
-        if output == 'response':
-            response = np.zeros((np.shape(stim_times)[0],total_samps, len(chs)))
-            stim_indices = np.searchsorted(data.timestamps, stim_times)
-            for i, stim in enumerate(stim_indices):
-                start_index = int(stim - ((pre/1000)*sample_rate))
-                end_index = int(stim + ((post/1000)*sample_rate))   
-                chunk = data.get_samples(start_sample_index = start_index, end_sample_index = end_index, 
-                                    selected_channels = chs)
-                
-                if median_subtraction == True:
-                    corrected_chunk = chunk - np.median(chunk, axis = 0 )
-                    corrected_chunk = np.subtract(corrected_chunk.T, np.median(corrected_chunk[:,chs[-10]:chs[-1]],axis=1))
-
-                    response[i,:,:] = corrected_chunk.T
-                else:
-                    response[i,:,:] = chunk - np.median(chunk, axis = 0 )
-
-            return response
         
-        elif output == 'pre/post':
-            pre_response = np.zeros((np.shape(stim_times)[0],pre_samps, n_chs))
-            post_response = np.zeros((np.shape(stim_times)[0],post_samps, n_chs))
-            stim_indices = np.searchsorted(data.timestamps,stim_times)
-            for i, stim in enumerate(stim_indices):
-                start_index = int(stim - ((pre/1000)*sample_rate))
-                end_index = int(stim + ((post/1000)*sample_rate))   
-
-                pre_chunk = data.get_samples(start_sample_index = start_index, end_sample_index = stim, 
-                                    selected_channels = np.arange(0,n_chs,1))
-                post_chunk = data.get_samples(start_sample_index = stim, end_sample_index = end_index, 
-                                    selected_channels = np.arange(0,n_chs,1))
-                pre_chunk = pre_chunk - np.median(pre_chunk, axis = 0 )
-                post_chunk = post_chunk - np.median(post_chunk, axis = 0 )
-                pre_response[i,:,:] = pre_chunk
-                post_response[i,:,:] = post_chunk
-            return pre_response, post_response
-        
-        elif output == 'all':
-            response = np.zeros((np.shape(stim_times)[0],total_samps, len(chs)))
-            pre_response = np.zeros((np.shape(stim_times)[0],pre_samps, n_chs))
-            post_response = np.zeros((np.shape(stim_times)[0],post_samps, n_chs))
-            stim_indices = np.searchsorted(data.timestamps,stim_times)
+        response = np.zeros((np.shape(stim_times)[0],total_samps, len(chs)))
+        stim_indices = np.searchsorted(data_stream.timestamps, stim_times)
+        for i, stim in enumerate(stim_indices):
+            start_index = int(stim - ((pre/1000)*sample_rate))
+            end_index = int(stim + ((post/1000)*sample_rate))   
+            chunk = data_stream.get_samples(start_sample_index = start_index, end_sample_index = end_index, 
+                                selected_channels = chs)
             
-            for i, stim in enumerate(stim_indices):
-                
-                start_index = int(stim - ((pre/1000)*sample_rate))
-                end_index = int(stim + ((post/1000)*sample_rate))   
+            if median_subtraction == True:
+                corrected_chunk = chunk - np.median(chunk, axis = 0) #subtract offset 
+                corrected_chunk = np.subtract(corrected_chunk.T, np.median(corrected_chunk[:,chs[-10]:chs[-1]], axis=1)) #median subtraction
 
-                pre_chunk = data.get_samples(start_sample_index = start_index, end_sample_index = stim, 
-                                    selected_channels = np.arange(0,n_chs,1))
-                post_chunk = data.get_samples(start_sample_index = stim, end_sample_index = end_index, 
-                                    selected_channels = np.arange(0,n_chs,1))
-                
-                chunk = data.get_samples(start_sample_index = start_index, end_sample_index = end_index, 
-                                    selected_channels = chs)
-                pre_chunk = pre_chunk - np.median(pre_chunk, axis = 0 )
-                post_chunk = post_chunk - np.median(post_chunk, axis = 0 )
-                chunk = chunk - np.median(chunk, axis = 0 ) 
-                pre_response[i,:,:] = pre_chunk
-                post_response[i,:,:] = post_chunk
+                response[i,:,:] = corrected_chunk.T
+            elif offset_subtraction == True:
+                response[i,:,:] = chunk - np.median(chunk, axis = 0)
+            else:
                 response[i,:,:] = chunk
-            return pre_response, post_response, response
+
+        return response
         
     def plot_ap(self, probe, stim_times, 
                 pre = 4, post = 20, 
                 first_ch = 125, last_ch = 175, 
                 title = '', 
+                median_subtraction = True,
                 spike_overlay = False,
                 n_trials = 10, spacing_mult = 350, 
                 save = False, savepath = '', format ='png'):
         
         data = self.get_raw(probe = probe,band = 'ap')
         response = self.get_chunk(probe = probe, stim_times = stim_times, 
-                                  pre = pre, post = post, 
+                                  pre = pre, post = post, median_subtraction = median_subtraction, 
                                   chs = np.arange(first_ch,last_ch))
         
         
@@ -339,6 +300,7 @@ def get_chunk(path,
             post = 500, # time in ms
             chs = np.arange(0,200,1), # channels
             median_subtraction = False,
+            offset_subtraction = False,
             ):
     """
     for open ephys data
@@ -370,8 +332,10 @@ def get_chunk(path,
             corrected_chunk = np.subtract(corrected_chunk.T, np.median(corrected_chunk[:,chs[-10]:chs[-1]], axis=1)) #median subtraction
 
             response[i,:,:] = corrected_chunk.T
-        else:
+        elif offset_subtraction == True:
             response[i,:,:] = chunk - np.median(chunk, axis = 0)
+        else:
+            response[i,:,:] = chunk
 
     return response
 
@@ -433,13 +397,13 @@ def align_data(data, pre, post, channels, threshold = 400, median_subtraction = 
 
     Args:
         data (np.array): The data to align, shape = (trials, samples, channels)
-        pre (float): pre-stim time in ms
-        post (float): post-stim time in ms
+        pre_samps (_type_): number of desired pre-samples (determined by pre time in ms) 
+        post_samps (_type_): number of desired post-samples (determined by post time in ms)
         channels (_type_): number of channels to plot
-        median_subtraction (bool): whether to perform median subtraction on the data
+        median_subtraction (_type_): whether to perform median subtraction on the data
 
     Returns:
-        np.array: aligned_data, shape = (trials, total_samps, channels)
+        _type_: aligned_data, shape = (trials, total_samps, channels)
     """   
     starts = [find_artifact_start(data[trial, :, 0], pre = pre, threshold = threshold) for trial in range(data.shape[0])] # the sample number of when the artifact first starts 
     # the sample number of when the artifact first starts determined by the find_artifact_start function
@@ -498,7 +462,7 @@ def raw_heatmap(data, pre=1, post=2, dists=None, vmin=None, vmax=None,
     time_ms = np.linspace(-pre, post, data.shape[1])
 
     cax = ax.imshow(data_to_plot, aspect='auto', extent=[time_ms[0], time_ms[-1], 0, channels],
-                    vmax=vmax, vmin=vmin, origin='lower', cmap='viridis')
+                    vmax=vmax, vmin=vmin, origin='lower', cmap='vlag')
 
     if created_fig:
         fig.colorbar(cax, ax=ax, pad=0.20)
@@ -537,7 +501,8 @@ def plot_ap(path, probe, stim_times,
                 units = None,
                 title = '', 
 
-                n_trials = 10, spacing_mult = 350, 
+                n_trials = 10, spacing_mult = 350,
+                ax = None, 
                 save = False, savepath = '', format ='png'):
 
         '''
@@ -605,12 +570,14 @@ def plot_ap(path, probe, stim_times,
         if spike_overlay == True:
             cmap2 = sns.color_palette("ch:s=.25,rot=-.25", n_colors = len(spikes))
             colors2 = cmap2.as_hex()
-        fig=plt.figure(figsize=(16,24))
+        if ax is None:
+            fig, ax =plt.figure(figsize=(6,8))
+            
         time_window = np.linspace(-pre,post,(total_samps))
         for trial,color in zip(trial_subset,colors):
         
             for ch in range(first_ch,last_ch): 
-                plt.plot(time_window,data[trial,:,ch]+ch*spacing_mult,color=color)
+                ax.plot(time_window,data[trial,:,ch]+ch*spacing_mult,color=color)
         
             if spike_overlay == True:
                 for i,ch in enumerate(spike_ch): 
@@ -618,13 +585,13 @@ def plot_ap(path, probe, stim_times,
                     if spike_dict[trial][i].size > 0:
                         for spike in spike_dict[trial][i]:
                             spike = spike - stim_times[trial]
-                            plt.scatter(spike*1000, (spike/spike) + ch*spacing_mult, 
+                            ax.scatter(spike*1000, (spike/spike) + ch*spacing_mult, 
                             alpha = 0.75, color = colors2[i], s = 500)
         
-        plt.gca().axvline(0,ls='--',color='r')       
-        plt.xlabel('time from stimulus onset (ms)')
-        plt.ylabel('uV')
-        plt.title(title)
+        ax.axvline(0,ls='--',color='r')       
+        ax.set_xlabel('time from stimulus onset (ms)')
+        ax.set_ylabel('uV')
+        ax.set_title(title)
         
         if save == True:
             plt.gcf().savefig(savepath,format=format,dpi=600)
