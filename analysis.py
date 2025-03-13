@@ -239,7 +239,7 @@ class Analysis:
         return None
 
     def get_electrode_coords(self):
-        coords_path = os.path.join(self.path, 'final_coords', 'coords_dict.pkl')
+        coords_path = os.path.join(self.path, 'final_coords', 'probe_coords_adj.pkl')
         if os.path.exists(coords_path):
             probe_coords = self.load_coords_from_file(coords_path)
             if probe_coords:
@@ -279,7 +279,7 @@ class Analysis:
 
 
     def get_brain_regs(self):
-        region_path = os.path.join(self.path, 'final_coords', 'regions_dict.pkl')
+        region_path = os.path.join(self.path, 'final_coords', 'probe_regs_adj.pkl')
         if os.path.exists(region_path): # see if final brain regions have been saved
             brain_regs = self.load_coords_from_file(region_path)
             if brain_regs:

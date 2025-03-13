@@ -19,11 +19,101 @@ import re
 import traceback
 import logging
 
+from dlab.generalephys import option234_positions
 
+def make_spike_secs(probe_path):
+    if os.path.isfile(os.path.join(probe_path, 'spike_seconds.npy')):
+        spike_times = np.load(os.path.join(probe_path, 'spike_seconds.npy'))
+        
+    else:
+        spike_samps = np.load(os.path.join(probe_path,'spike_times.npy')).flatten()        
+        ts = np.load(os.path.join(probe_path,'timestamps.npy'))
+        spike_times = ts[spike_samps]
+        np.save(os.path.join(probe_path,'spike_seconds.npy'), spike_times)
+    return spike_times
 
+def load_unit_data(probe_path, probe_name, probe_depth):
+    from random import sample
+    spike_times = make_spike_secs(probe_path)
+    
+    site_positions  = np.load(os.path.join(probe_path,'channel_positions.npy'))               
+    spike_clusters  = np.load(os.path.join(probe_path,'spike_clusters.npy')).flatten()
+    spike_templates = np.load(os.path.join(probe_path,'spike_templates.npy'))
+    templates       = np.load(os.path.join(probe_path,'templates.npy'))
+    amplitudes      = np.load(os.path.join(probe_path,'amplitudes.npy'))
+    cluster_info    = pd.read_csv(os.path.join(probe_path,'cluster_info.tsv'), delimiter='\t')
+    
+    
+    weights        = np.zeros(site_positions.shape)
+    
+    mean_templates = []
+    peak_templates = []
+
+    all_weights    = []
+    amps           = []
+    times          = []
+    ch             = []
+    
+    for unit_id in np.unique(spike_clusters):
+        #get mean template for each unit
+        all_templates, count    = np.unique(spike_templates[np.where(spike_clusters==unit_id)],return_counts=True)
+        
+        if len(all_templates) > 100:
+            n_templates_to_subsample = 100
+        else: 
+            n_templates_to_subsample = len(all_templates)
+        
+        random_subsample_of_templates = templates[sample(list(all_templates),n_templates_to_subsample)]
+        
+        mean_template = np.mean(random_subsample_of_templates,axis=0)
+        
+        mean_templates.append(mean_template)
+        
+        if cluster_info is not None:
+            best_ch = cluster_info[cluster_info.cluster_id == unit_id].ch.values[0].astype(int)
+        else:
+            best_ch = np.argmax((np.max(mean_template,axis=0) - np.min(mean_template,axis=0)))
+        
+        ch.append(best_ch)
+        
+        peak_wv = mean_template[:,best_ch-1]
+        peak_templates.append(peak_wv)
+        
+        #Take weighted average of site positions where hweights is abs value of template for that channel
+        #This gets us the x and y positions of the unit on the probe
+
+        # for channel in range(len(mean_template.T)):
+        #     weights[channel,:] = np.trapz(np.abs(mean_template.T[channel]))
+    
+        # # weights                /= weights.max()
+        # weights[weights < 0.25] = 0 #Where weights are low, set to 0
+        # x,y                     = np.average(site_positions,weights=weights,axis=0)
+        # all_weights.append(weights)
+        # xpos.append(x)
+        # ypos.append(y)
+        
+        amps.append(amplitudes[:,0][spike_clusters==unit_id])
+        times.append(spike_times[spike_clusters==unit_id])
+
+    if cluster_info is not None:
+        probe_data = cluster_info.copy()
+        
+    probe_data['probe']      = probe_name
+    # probe_data['shank']    = np.floor(cluster_info['xcoords'].values / 205.).astype(int)
+    probe_data['depth']      = np.array(site_positions[:,1][ch])*-1 + probe_depth
+    probe_data['times']      = times
+    probe_data['amplitudes'] = amps
+    probe_data['template']   = mean_templates
+    # probe_data['weights']  = all_weights
+    probe_data['peak_wv']    = peak_templates
+    probe_data['xpos']       = site_positions[:,0][probe_data['ch']]
+    probe_data['ypos']       = site_positions[:,1][probe_data['ch']]
+    probe_data['no_spikes']   = [len(i) for i in times]
+    probe_data['KSamplitude'] = probe_data['Amplitude']
+    probe_data['unit_id'] = probe_data['cluster_id']
+    return probe_data
 
 class NWB_Tools:        
-    
         def __init__(self, analysis_obj):
             self.analysis = analysis_obj
             self.mouse = self.analysis.mouse
@@ -62,32 +152,20 @@ class NWB_Tools:
             """
             dfs = []
             for i, probe in enumerate(probes):
-                
-                
-                probe_path = os.path.join(self.path, 'Record Node 105','Experiment1','recording1',
-                            'continuous',f'Neuropix-PXI-121.{probe.capitalize()}-AP' ) # ugh this can change...
-                
+                probe_path = os.path.join(self.path, 'Record Node 105','experiment1','recording1',
+                            'continuous',f'Neuropix-PXI-104.Probe{probe.strip("probe")}-AP' ) # ugh this can change...
                 if os.path.exists(probe_path):
                     print('Appears to be recorded on OpenEphys')
-                    make_spike_secs(probe_path)
-                    df = load_unit_data(probe_path, probe_depth = depths[i], 
-                                            spikes_filename = 'spike_secs.npy',
-                                            probe_name = probe.strip('probe'))
-
+                    df = load_unit_data(probe_path, 
+                                        probe_depth = depths[i], 
+                                        probe_name = probe.strip('probe'))
                 else:
                     print('Appears to be recorded on SpikeGLX')
-                    probe_path = glob.glob(os.path.join(self.path, f'*imec{i}*'))[0]
-                    df = load_unit_data(probe_path, probe_depth = depths[i],
-                                        spikes_filename = 'spike_seconds_adjusted.npy',
-                                        probe_name = probe.strip('probe'))
-                
-
-                cluster_info = pd.read_csv(os.path.join(probe_path, 'cluster_info.tsv'),sep ='\t')
-                ch = np.array(cluster_info.ch)
-                depth = np.array(cluster_info.depth)
-
-                df['ch'] = ch
-                df['depth'] = depth
+                    print('This is not yet supported')
+                    #probe_path = glob.glob(os.path.join(self.path, f'*imec{i}*'))[0]
+                    #df = load_unit_data(probe_path, probe_depth = depths[i],
+                    #                   spikes_filename = 'spike_seconds_adjusted.npy',
+                    #                   probe_name = probe.strip('probe'))
                 
                 dfs.append(df)
             
@@ -242,6 +320,7 @@ class NWB_Tools:
             self.nwbfile.add_unit_column('xpos', 'the x position on probe')
             self.nwbfile.add_unit_column('zpos', 'the z position on probe')
             self.nwbfile.add_unit_column('no_spikes', 'total number of spikes across recording')
+            self.nwbfile.add_unit_column('firing_rate', 'firing rate of unit')
             self.nwbfile.add_unit_column('KSlabel', 'Kilosort label')
             self.nwbfile.add_unit_column('KSamplitude', 'Kilosort amplitude')
             self.nwbfile.add_unit_column('KScontamination', 'Kilosort ISI contamination')
@@ -260,10 +339,11 @@ class NWB_Tools:
                                 zpos= unit_row.zpos,
                                 template= unit_row.template,
                                 no_spikes = unit_row.no_spikes,
+                                firing_rate = unit_row.fr,
                                 group= str(unit_row.group),
                                 KSlabel= str(unit_row.KSlabel),
                                 KSamplitude= unit_row.KSamplitude,
-                                KScontamination= unit_row.KScontamination,
+                                KScontamination= unit_row.ContamPct,
                                 ch = unit_row.ch)
         
         def write_nwb(self):

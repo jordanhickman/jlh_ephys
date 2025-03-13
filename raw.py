@@ -312,7 +312,6 @@ def get_chunk(path,
     data_stream = load_datastream(path, probe, band = band)
     sample_rate = data_stream.metadata['sample_rate']
     
-    
     pre_samps = int((pre/1000 * sample_rate))
     post_samps = int((post/1000 * sample_rate))
     total_samps = pre_samps + post_samps
@@ -428,6 +427,7 @@ def align_data(data, pre, post, channels, threshold = 400, median_subtraction = 
 
 
 def raw_heatmap(data, pre=1, post=2, dists=None, vmin=None, vmax=None, 
+                averaging = 'mean',
                 save=False, save_path=None, save_type='png', title=None, ax=None):
     """
     Plots a heatmap of data with options for customization and saving.
@@ -457,7 +457,10 @@ def raw_heatmap(data, pre=1, post=2, dists=None, vmin=None, vmax=None,
         created_fig = False  # Flag to avoid creating a new figure
 
     channels = data.shape[2]
-    data_to_plot = np.mean(data, axis=0).T  # average across trials
+    if averaging == 'mean':
+        data_to_plot = np.mean(data, axis=0).T  # average across trials
+    elif averaging == 'median':
+        data_to_plot = np.median(data, axis=0).T
 
     time_ms = np.linspace(-pre, post, data.shape[1])
 
@@ -544,8 +547,7 @@ def plot_ap(path, probe, stim_times,
             condition = (
                 (units['ch'] >= first_ch) &
                 (units['ch'] <= last_ch) &
-                (units['probe'] == probeID) &
-                (units['group'] == 'good')
+                (units['probe'] == probeID)
             )
         
             spikes = np.array(units.loc[condition, 'spike_times'])

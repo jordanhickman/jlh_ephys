@@ -121,3 +121,60 @@ class Preprocess:
         print('Successfully created stim_df)')
         self.stim_df = stim_df
         
+        
+
+## associated utils
+
+import re
+
+def get_contacts(df):
+    strings = df['comment']
+    
+    contact_negative = []
+    contact_positive = []
+    polarity = []
+    
+    for string in strings:
+        r_number = re.search(r'(\d+)r', string)
+        r_value = int(r_number.group(1)) if r_number else None
+        contact_negative.append(r_value)
+
+        b_number = re.search(r'(\d+)b', string)
+        b_value = int(b_number.group(1)) if b_number else 0
+        contact_positive.append(b_value)
+
+        if b_value == 0:
+            polarity.append("monopolar")
+        else:
+            polarity.append("bipolar")
+    
+    df['contact_negative'] = contact_negative
+    df['contact_positive'] = contact_positive
+    df['polarity'] = polarity
+    
+    return df
+
+def convert_stim_df_to_trials_df(stim_df):
+    # Apply the get_contacts function to add new columns to stim_df
+    stim_df = get_contacts(stim_df)
+    
+    # Initialize a new DataFrame 'trials' with specified columns and transformations
+    trials_df = pd.DataFrame()
+    trials_df['run'] = stim_df['Run']
+    trials_df['start_time'] = stim_df['stim_time']
+    trials_df['end_time'] = stim_df['stim_time'] + 2
+    trials_df['stim_time'] = stim_df['stim_time']
+    trials_df['amplitude'] = stim_df['EventAmp1']
+    trials_df['pulse_duration'] = stim_df['EventDur1']
+    trials_df['shape'] = stim_df['EventType']
+    trials_df['polarity'] = stim_df['polarity']
+    trials_df['pulse_number'] = stim_df['EventQuantity']
+    trials_df['event_period'] = stim_df['EventPeriod'] / 1e3  # Convert to seconds, originally in ms
+    trials_df['train_duration'] = stim_df['TrainDur'] / 1e6    # Convert to seconds, originally in microseconds
+    trials_df['train_period'] = stim_df['TrainPeriod'] / 1e6   # Convert to seconds, originally in microseconds
+    trials_df['train_quantity'] = stim_df['TrainQuantity']
+    trials_df['comment'] = stim_df['comment']
+    trials_df['contact_positive'] = stim_df['contact_positive']
+    trials_df['contact_negative'] = stim_df['contact_negative']
+    
+    return trials_df
