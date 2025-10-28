@@ -1,5 +1,5 @@
 import numpy as np
-from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
+#from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
 
 
 import matplotlib.pyplot as plt

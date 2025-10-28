@@ -395,11 +395,11 @@ def align_data(data, pre, post, channels, threshold = 400, median_subtraction = 
     """ Align the data to the artifact onset based on artifact start times. Optionally perform median subtraction.
 
     Args:
-        data (np.array): The data to align, shape = (trials, samples, channels)
-        pre_samps (_type_): number of desired pre-samples (determined by pre time in ms) 
-        post_samps (_type_): number of desired post-samples (determined by post time in ms)
-        channels (_type_): number of channels to plot
-        median_subtraction (_type_): whether to perform median subtraction on the data
+        data (3D np.array): The data to align, shape = (trials, samples, channels)
+        pre_samps (int): number of desired pre-samples (determined by pre time in ms) 
+        post_samps (int): number of desired post-samples (determined by post time in ms)
+        channels (int): number of channels to plot
+        median_subtraction (bool): whether to perform median subtraction on the data
 
     Returns:
         _type_: aligned_data, shape = (trials, total_samps, channels)
@@ -535,7 +535,7 @@ def plot_ap(path, probe, stim_times,
         sample_rate = data_stream.metadata['sample_rate']
         data = get_chunk(path, probe, stim_times, 
                              pre = pre, post = post, 
-                             chs =np.arange(0,300,1), 
+                             chs =np.arange(first_ch, 300 , 1), 
                              median_subtraction = median_subtraction)
         
 

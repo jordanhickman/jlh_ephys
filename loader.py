@@ -13,7 +13,7 @@ class Loader:
 
     #loading functions
     def find_folder(self):
-        locations = [r'E:\\', r'C:\Users\jordan\Documents', r'D:\\']
+        locations = [r'E:\\', r'C:\Users\jordan\Documents', r'D:\\', os.path.join(os.getcwd(), 'recordings')]
         
         for location in locations:
             search_pattern = os.path.join(location, f'*{self.mouse}*{self.date}*')
@@ -22,8 +22,8 @@ class Loader:
             if matching_folders:
                 return matching_folders[0]
         
-        raise FileNotFoundError(f"No matching folder found for mouse {self.mouse} and date {self.date} in locations {locations}.")
-                    
+        raise FileNotFoundError(f"Raw recording folder not found for mouse {self.mouse} and date {self.date} in locations {locations}. Checking for NWBs in local folder")
+
 
     def check_for_nwb(self):
         nwb_path = glob.glob(os.path.join(self.path,'*.nwb'))
