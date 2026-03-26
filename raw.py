@@ -520,7 +520,7 @@ def plot_ap(path, probe, stim_times,
         first_ch: first channel to plot
         last_ch: last channel to plot
 
-        probeID: probe name ('A', 'B', 'C')
+        probeID: probe name ('probeA', 'B', 'C')
         spike_overlay: whether to overlay spike times from dataframe
         units: dataframe with spike times
         title: title of the plot
@@ -573,7 +573,7 @@ def plot_ap(path, probe, stim_times,
             cmap2 = sns.color_palette("ch:s=.25,rot=-.25", n_colors = len(spikes))
             colors2 = cmap2.as_hex()
         if ax is None:
-            fig, ax =plt.figure(figsize=(6,8))
+            fig, ax =plt.subplots(figsize=(6,8))
             
         time_window = np.linspace(-pre,post,(total_samps))
         for trial,color in zip(trial_subset,colors):

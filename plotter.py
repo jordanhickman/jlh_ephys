@@ -822,3 +822,84 @@ def stacked_rasters(units_df, triggers, window_start=-0.01, window_end=0.02, mar
         plt.savefig(save_path+'.png', format='png', bbox_inches='tight', facecolor=fig.get_facecolor())
 
 
+
+def psth(spike_times, stim_times, pre, post, bin_size=0.005, var = 'sem', plot=True, plot_type='line', color = 'blue', alpha = 1, scale = 1,  ax=None):
+    """
+    Computes the Peri-Stimulus Time Histogram (PSTH), optionally plots it.
+    
+    Parameters:
+    - spike_times: array-like, spike times for a single unit.
+    - stim_times: array-like, times of stimulus delivery.
+    - pre: float, time before stimulus to start window (negative value).
+    - post: float, time after stimulus to end window.
+    - bin_size: float, width of bins for histogram.
+    - plot: bool, whether to plot the PSTH.
+    - plot_type: str, 'histogram' or 'line'.
+    - ax: matplotlib.axes.Axes, optional axis for plotting.
+    
+    Returns:
+    - ax: matplotlib.axes.Axes, the axis with the plot if plot=True.
+    """
+    bins = np.arange(pre, post + bin_size, bin_size)
+    counts_per_trial = []
+
+    for stim_time in stim_times:
+        relative_spike_times = spike_times - stim_time
+        trial_spikes = relative_spike_times[(relative_spike_times >= pre) & (relative_spike_times <= post)]
+        counts, _ = np.histogram(trial_spikes, bins=bins)
+        counts_per_trial.append(counts)
+    
+    counts_per_trial_array = np.array(counts_per_trial)
+    psth = np.mean(counts_per_trial_array, axis=0)
+    
+    if var == 'variance':
+        variance = np.var(counts_per_trial_array, axis=0)
+    elif var == 'sem':
+        variance = np.std(counts_per_trial_array, axis=0) / np.sqrt(len(counts_per_trial_array))
+    elif var == 'std':
+        variance = np.std(counts_per_trial_array, axis=0)
+    
+    # ---- optional extra scaling
+    psth     = psth / scale
+    variance = variance / scale
+    if plot:
+        if ax is None:
+            fig, ax = plt.subplots()
+        plot_psth(psth, variance, bins[:-1] + bin_size / 2, plot_type = plot_type, color = color, scale = scale, ax = ax)
+        return ax
+    else:
+        return psth, variance, counts_per_trial
+
+def plot_psth(psth_arr, variance, bin_centers, plot_type='line', color = 'blue', alpha = 1, scale = 1, ax=None):
+    """
+    Plots the PSTH with variance, with time represented in milliseconds (ms).
+    
+    Parameters:
+    - psth: array, averaged firing rate per bin.
+    - variance: array, variance of firing rate per bin.
+    - bin_centers: array, centers of the bins.
+    - plot_type: str, 'histogram' or 'line'.
+    - ax: matplotlib.axes.Axes, axis for plotting.
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    # Convert bin_centers from seconds to milliseconds
+    bin_centers_ms = bin_centers * 1000
+    
+    if plot_type == 'histogram':
+        # Adjust the width proportionally if necessary
+        width_ms = np.diff(bin_centers_ms)[0] if len(bin_centers_ms) > 1 else 1
+        ax.bar(bin_centers_ms, psth_arr, width=width_ms, alpha=0.6, label='Mean Firing Rate')
+    elif plot_type == 'line':
+        var = variance # variance specified from psth function (sem, std, or var)
+        ax.plot(bin_centers_ms, psth_arr, color = color,  label='Mean PSTH')
+        ax.fill_between(bin_centers_ms, psth_arr - var, psth_arr + var, alpha=0.3, color = color)
+    else:
+        print("Invalid plot type. Choose 'histogram' or 'line'.")
+        return
+    
+    ax.set_xlabel('Time from Stimulus (ms)')
+    ax.set_ylabel('Average Firing Rate (Hz)')
+    ax.set_title('PSTH (' + plot_type.capitalize() + ')')
+    ax.legend()
